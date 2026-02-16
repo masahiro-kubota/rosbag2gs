@@ -3,3 +3,10 @@ data/
 __pycache__/
 *.pyc
 results/
+config/
+debug/
+mcap_bag/
+*.mcap
+*.log
+.vscode/
+b0938cde-3043-489d-9129-7a576bbea61f/
