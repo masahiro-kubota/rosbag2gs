@@ -1,6 +1,4 @@
-# gsplat-workspace
-
-[gsplat](https://github.com/nerfstudio-project/gsplat) v1.5.3 の examples を動かすための作業環境。
+# rosbag2gs
 
 ## 前提条件
 
@@ -9,6 +7,7 @@
 - [uv](https://docs.astral.sh/uv/)
 
 ## セットアップ
+とりあえず普通に3D GSが動くことを確認してから、rosbagからの変換をする手順になってます。
 
 ### 1. データセットのダウンロード
 
