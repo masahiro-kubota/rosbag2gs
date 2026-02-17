@@ -74,13 +74,18 @@ ROS2 の MCAP バッグファイルから画像とカメラポーズを抽出し
 
 ### 前提
 
-- MCAP バッグに以下のトピックが必要:
-  - カメラ画像 (CompressedImage)
-  - カメラ内部パラメータ (CameraInfo)
-  - 車両ポーズ (Odometry)
-  - `tf_static` (TFMessage) — base_link からカメラ光学フレームまでの変換チェーン
+MCAP バッグに以下の ROS2 トピックが含まれている必要がある:
+
+| トピック | メッセージ型 | 用途 | トピック名の例 |
+|---|---|---|---|
+| カメラ画像 | `sensor_msgs/msg/CompressedImage` | 学習用画像の抽出 | `/sensing/camera/camera1/image_raw/compressed` |
+| カメラ内部パラメータ | `sensor_msgs/msg/CameraInfo` | fx, fy, cx, cy の取得 | `/sensing/camera/camera1/camera_info` |
+| 車両ポーズ | `nav_msgs/msg/Odometry` | 各フレームのカメラ位置・姿勢の計算 | `/localization/kinematic_state` |
+| TF static | `tf2_msgs/msg/TFMessage` | base_link → カメラ光学フレームの外部パラメータ | `/tf_static` |
+
+- `tf_static` は `base_link` からカメラの光学フレーム（例: `camera1/camera_optical_link`）までの変換チェーンが必要。途中のフレーム（例: `sensor_kit_base_link`, `camera1/camera_link`）もすべて含まれていること
 - `tf_static` が別のバッグに入っている場合は `--tf-mcap` で指定
-- トピック名は YAML 設定ファイルで指定（`config/` にサンプルあり）
+- トピック名は `--camera` オプションでデフォルト命名規則を使うか、YAML 設定ファイルで個別指定（`config/` にサンプルあり）
 
 ### 変換
 
@@ -166,14 +171,40 @@ uv run python examples/simple_trainer.py mcmc \
   --disable_video
 ```
 
+主要オプション:
+
+| オプション | デフォルト | 説明 |
+|---|---|---|
+| `--strategy.cap-max` | 1,000,000 | Gaussian 数の上限。VRAM に応じて調整（例: 100000 で軽量、10000000 で高品質） |
+| `--data_factor` | 1 | 画像ダウンサンプル倍率（1=フル解像度、2=半分、4=1/4） |
+| `--max_steps` | 30,000 | 学習ステップ数 |
+| `--disable_viewer` | false | viser ビューワーを無効化（バックグラウンド実行時に推奨） |
+| `--disable_video` | false | トラジェクトリ動画の生成を無効化 |
+
 > **Note:** 複数カメラ統合時は `--disable_video` を付けること。トラジェクトリ動画の生成は全カメラのポーズを補間するため、異なる方向のカメラ間でワープが発生し、レンダリングに非常に時間がかかる。
 
-## ビューワー
+### 実行例
 
 ```bash
-# 学習済みモデルを表示
-uv run python examples/simple_viewer.py \
-  --ckpt results/truck/ckpt_29999_rank0.pt
+# 1. MCAP → COLMAP 変換（5カメラ統合）
+python3 scripts/mcap_to_colmap.py \
+  --camera camera1 camera5 camera6 camera7 camera8 \
+  --mcap mcap_bag/mcap_bag_cloud2.mcap \
+  --tf-mcap mcap_bag/tf_static_rosbag_20251111.mcap \
+  --output data/mcap_cloud2_5cam
+
+# 2. 学習（GS 10万、バックグラウンド実行）
+nohup uv run python examples/simple_trainer.py mcmc \
+  --data_dir data/mcap_cloud2_5cam \
+  --data_factor 1 \
+  --strategy.cap-max 100000 \
+  --result_dir results/mcap_cloud2_5cam \
+  --disable_viewer \
+  --disable_video \
+  > results/mcap_cloud2_5cam.log 2>&1 &
+
+# ログ確認
+tail -f results/mcap_cloud2_5cam.log
 ```
 
 ## PLY エクスポート

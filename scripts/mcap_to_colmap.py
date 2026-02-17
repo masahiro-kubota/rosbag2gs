@@ -1,6 +1,7 @@
 """MCAP ROS2 bag -> COLMAP format converter for gsplat 3DGS training."""
 
 import io
+import json
 import struct
 import argparse
 from pathlib import Path
@@ -362,10 +363,30 @@ def main():
     init_points = generate_initial_points(colmap_images)
     write_points3d_bin(sparse_dir / "points3D.bin", init_points)
 
+    # Save metadata for downstream tools (scene origin, scale, etc.)
+    pose_stamps = [p[0] for p in poses]
+    metadata = {
+        "scene_center_map_coords": scene_center.tolist(),
+        "scene_center_description": "Mean of all camera positions in the original map coordinate system. "
+                                    "COLMAP positions = map positions - scene_center.",
+        "scale": 1.0,
+        "scale_description": "No scaling applied. 1 COLMAP unit = 1 meter in map coordinates.",
+        "num_cameras": len(all_cameras),
+        "num_images": len(colmap_images),
+        "camera_labels": camera_labels,
+        "pose_time_range": [float(pose_stamps[0]), float(pose_stamps[-1])],
+        "mcap_path": str(mcap_path),
+        "tf_mcap_path": str(tf_mcap_path),
+    }
+    metadata_path = output_dir / "metadata.json"
+    with open(metadata_path, "w") as f:
+        json.dump(metadata, f, indent=2)
+
     print(f"\nDone! COLMAP data written to {output_dir}")
     print(f"  cameras.bin: {len(all_cameras)} camera(s)")
     print(f"  images.bin:  {len(colmap_images)} image(s)")
     print(f"  points3D.bin: {len(init_points)} points (generated from camera views)")
+    print(f"  metadata.json: scene_center={scene_center.tolist()}")
 
 
 if __name__ == "__main__":
