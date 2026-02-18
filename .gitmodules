@@ -1,0 +1,3 @@
+[submodule "SegFormer"]
+	path = SegFormer
+	url = git@github.com:masahiro-kubota/SegFormer.git
